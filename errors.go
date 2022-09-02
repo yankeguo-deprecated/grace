@@ -1,6 +1,7 @@
 package grace
 
 import (
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -10,9 +11,15 @@ type Errors []error
 func (errs Errors) Error() string {
 	sb := &strings.Builder{}
 	for i, err := range errs {
-		if i > 0 {
-			sb.WriteRune(';')
+		if err == nil {
+			continue
 		}
+		if sb.Len() > 0 {
+			sb.WriteString("; ")
+		}
+		sb.WriteRune('#')
+		sb.WriteString(strconv.Itoa(i))
+		sb.WriteString(": ")
 		sb.WriteString(err.Error())
 	}
 	return sb.String()
@@ -30,10 +37,6 @@ func NewErrorGroup() *ErrorGroup {
 }
 
 func (eg *ErrorGroup) Add(err error) {
-	if err == nil {
-		return
-	}
-
 	eg.lock.Lock()
 	defer eg.lock.Unlock()
 
@@ -44,11 +47,11 @@ func (eg *ErrorGroup) Unwrap() error {
 	eg.lock.RLock()
 	defer eg.lock.RUnlock()
 
-	if len(eg.errs) == 0 {
-		return nil
-	} else if len(eg.errs) == 1 {
-		return eg.errs[0]
-	} else {
-		return Errors(eg.errs)
+	for _, err := range eg.errs {
+		if err != nil {
+			return Errors(eg.errs)
+		}
 	}
+
+	return nil
 }
