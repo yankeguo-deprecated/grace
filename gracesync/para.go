@@ -2,23 +2,37 @@ package gracesync
 
 import (
 	"context"
+	"errors"
+	"sync"
 
 	"github.com/guoyk93/grace"
 )
 
-func DoPara[T any](ctx context.Context, vs []T, concurrency int, fn func(ctx context.Context, v T) (err error)) (err error) {
-	pg := NewParaGroup(concurrency)
+func DoPara[T any](ctx context.Context, concurrency int, vs []T, fn grace.Func21[context.Context, T, error]) (err error) {
+	if concurrency < 1 {
+		panic(errors.New("DoPara: invalid argument 'concurrency', must > 0"))
+	}
+
+	ch := make(chan struct{}, concurrency)
+	for i := 0; i < concurrency; i++ {
+		ch <- struct{}{}
+	}
+	wg := &sync.WaitGroup{}
+
 	eg := grace.NewErrorGroup()
 	for _, _v := range vs {
 		v := _v
-		pg.Mark()
+		wg.Add(1)
 		go func() {
-			pg.Take()
-			defer pg.Done()
+			defer wg.Done()
+			<-ch
+			defer func() {
+				ch <- struct{}{}
+			}()
 			eg.Add(fn(ctx, v))
 		}()
 	}
-	pg.Wait()
+	wg.Wait()
 	err = eg.Unwrap()
 	return
 }
