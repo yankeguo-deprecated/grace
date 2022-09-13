@@ -11,15 +11,10 @@ func TestParaDo(t *testing.T) {
 	vs := []string{"hello", "world"}
 	var out []string
 
-	err := DoPara(
-		context.Background(),
-		1,
-		vs,
-		func(ctx context.Context, v string) (err error) {
-			out = append(out, v)
-			return
-		},
-	)
+	err := DoPara(context.Background(), vs, 1, func(ctx context.Context, v string) (err error) {
+		out = append(out, v)
+		return
+	})
 
 	sort.Strings(vs)
 	sort.Strings(out)

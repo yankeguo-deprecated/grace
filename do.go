@@ -2,28 +2,28 @@ package grace
 
 import "context"
 
-func Do(fns ...TaskFunc) (err error) {
-	for _, task := range fns {
-		if err = task(); err != nil {
+func Do(tasks ...Task) (err error) {
+	for _, task := range tasks {
+		if err = task.Do(); err != nil {
 			return
 		}
 	}
 	return
 }
 
-func DoContext(ctx context.Context, fns ...ContextTaskFunc) (err error) {
-	for _, fn := range fns {
-		if err = fn(ctx); err != nil {
+func DoContext(ctx context.Context, tasks ...ContextTask) (err error) {
+	for _, task := range tasks {
+		if err = task.Do(ctx); err != nil {
 			return
 		}
 	}
 	return
 }
 
-func MustDo(fns ...TaskFunc) {
-	Must0(Do(fns...))
+func MustDo(tasks ...Task) {
+	Must0(Do(tasks...))
 }
 
-func MustDoContext(ctx context.Context, fns ...ContextTaskFunc) {
-	Must0(DoContext(ctx, fns...))
+func MustDoContext(ctx context.Context, tasks ...ContextTask) {
+	Must0(DoContext(ctx, tasks...))
 }

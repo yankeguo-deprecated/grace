@@ -15,9 +15,9 @@ var (
 	EnvPrefix = ""
 )
 
-func EnvVal[T any](out *T, key string, required bool) grace.TaskFunc {
+func EnvVal[T any](out *T, key string, required bool) grace.Task {
 	prefix := EnvPrefix
-	return func() error {
+	return grace.TaskFunc(func() error {
 		val := strings.TrimSpace(os.Getenv(prefix + key))
 		if val == "" {
 			if required {
@@ -27,12 +27,12 @@ func EnvVal[T any](out *T, key string, required bool) grace.TaskFunc {
 		} else {
 			return DecodeEnvVal(out, val)
 		}
-	}
+	})
 }
 
-func EnvSlice[T any](out *[]T, key string, required bool) grace.TaskFunc {
+func EnvSlice[T any](out *[]T, key string, required bool) grace.Task {
 	prefix := EnvPrefix
-	return func() error {
+	return grace.TaskFunc(func() error {
 		val := strings.TrimSpace(os.Getenv(prefix + key))
 		if val == "" {
 			if required {
@@ -42,12 +42,12 @@ func EnvSlice[T any](out *[]T, key string, required bool) grace.TaskFunc {
 		} else {
 			return DecodeEnvSlice(out, val)
 		}
-	}
+	})
 }
 
-func EnvMap[T any](out *map[string]T, key string, required bool) grace.TaskFunc {
+func EnvMap[T any](out *map[string]T, key string, required bool) grace.Task {
 	prefix := EnvPrefix
-	return func() error {
+	return grace.TaskFunc(func() error {
 		val := strings.TrimSpace(os.Getenv(prefix + key))
 		if val == "" {
 			if required {
@@ -57,7 +57,7 @@ func EnvMap[T any](out *map[string]T, key string, required bool) grace.TaskFunc 
 		} else {
 			return DecodeEnvMap(out, val)
 		}
-	}
+	})
 }
 
 func DecodeEnvVal[T any](out *T, s string) (err error) {
