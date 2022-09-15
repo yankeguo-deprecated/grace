@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/guoyk93/grace"
 	"net/http"
 	"os"
 	"strings"
@@ -11,11 +12,16 @@ import (
 	"github.com/guoyk93/grace/gracetrack"
 )
 
+const (
+	FormatQYWX = "qywx"
+)
+
 func Notify(title string, ctx *context.Context, err *error) {
 	u := strings.TrimSpace(os.Getenv("NOTIFY_URL"))
 	if u == "" {
 		return
 	}
+	f := strings.ToLower(strings.TrimSpace(os.Getenv("NOTIFY_FORMAT")))
 	var items []string
 	if track := gracetrack.Extract(*ctx); track != nil {
 		items = track.DumpPlain()
@@ -27,8 +33,13 @@ func Notify(title string, ctx *context.Context, err *error) {
 		items = append(items, "执行完成")
 	}
 	text := title + "\n" + strings.Join(items, "\n")
-
-	buf, _ := json.Marshal(map[string]interface{}{"text": text})
+	var buf []byte
+	switch f {
+	case FormatQYWX:
+		buf, _ = json.Marshal(grace.M{"msgtype": "text", "text": grace.M{"content": text}})
+	default:
+		buf, _ = json.Marshal(map[string]interface{}{"text": text})
+	}
 	if len(buf) == 0 {
 		return
 	}
