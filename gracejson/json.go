@@ -2,7 +2,7 @@ package gracejson
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 )
 
 func UnmarshalJSON[T any](buf []byte) (out T, err error) {
@@ -11,7 +11,7 @@ func UnmarshalJSON[T any](buf []byte) (out T, err error) {
 }
 
 func UnmarshalJSONFile[T any](filename string) (T, error) {
-	if buf, err := ioutil.ReadFile(filename); err != nil {
+	if buf, err := os.ReadFile(filename); err != nil {
 		var v T
 		return v, err
 	} else {

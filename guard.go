@@ -2,7 +2,6 @@ package grace
 
 import (
 	"context"
-	"errors"
 	"fmt"
 )
 
@@ -11,7 +10,7 @@ func Guard(err *error) {
 		if re, ok := r.(error); ok {
 			*err = re
 		} else {
-			*err = errors.New(fmt.Sprintf("panic: %v", r))
+			*err = fmt.Errorf("panic: %v", r)
 		}
 	}
 }

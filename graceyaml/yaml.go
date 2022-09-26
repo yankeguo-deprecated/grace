@@ -2,7 +2,7 @@ package graceyaml
 
 import (
 	"gopkg.in/yaml.v3"
-	"io/ioutil"
+	"os"
 )
 
 func UnmarshalYAML[T any](buf []byte) (out T, err error) {
@@ -11,7 +11,7 @@ func UnmarshalYAML[T any](buf []byte) (out T, err error) {
 }
 
 func UnmarshalYAMLFile[T any](filename string) (T, error) {
-	if buf, err := ioutil.ReadFile(filename); err != nil {
+	if buf, err := os.ReadFile(filename); err != nil {
 		var v T
 		return v, err
 	} else {

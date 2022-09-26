@@ -2,6 +2,7 @@ package graceconf
 
 import (
 	"flag"
+	"github.com/guoyk93/grace/gracejson"
 
 	"github.com/creasty/defaults"
 	"github.com/go-playground/validator/v10"
@@ -15,6 +16,27 @@ func LoadYAMLFlagConf[T any]() (out T, err error) {
 	flag.Parse()
 
 	if out, err = graceyaml.UnmarshalYAMLFile[T](conf); err != nil {
+		return
+	}
+
+	if err = defaults.Set(&out); err != nil {
+		return
+	}
+
+	if err = validator.New().Struct(&out); err != nil {
+		return
+	}
+
+	return
+}
+
+func LoadJSONFlagConf[T any]() (out T, err error) {
+	var conf string
+
+	flag.StringVar(&conf, "conf", "config.json", "config file")
+	flag.Parse()
+
+	if out, err = gracejson.UnmarshalJSONFile[T](conf); err != nil {
 		return
 	}
 

@@ -2,9 +2,10 @@ package grace
 
 import (
 	"context"
-	"github.com/stretchr/testify/require"
 	"io"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestDo(t *testing.T) {
@@ -28,7 +29,8 @@ func TestDo(t *testing.T) {
 }
 
 func TestDoContext(t *testing.T) {
-	ctx := context.WithValue(context.Background(), "a", "a")
+	type customKey string
+	ctx := context.WithValue(context.Background(), customKey("a"), "a")
 	var count int
 	task := ContextTaskFunc(func(_ctx context.Context) error {
 		require.Equal(t, ctx, _ctx)

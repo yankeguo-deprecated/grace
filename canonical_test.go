@@ -5,9 +5,7 @@ import (
 )
 
 var (
-	_ Executor10[int] = Func10[int](func(i1 int) {
-		return
-	})
+	_ Executor10[int] = Func10[int](func(i1 int) {})
 	_ Executor01[int] = Func01[int](func() (o1 int) {
 		return
 	})
