@@ -2,31 +2,34 @@ package gracek8s
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/guoyk93/grace/gracex509"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
-func EnsureService(ctx context.Context, client *kubernetes.Clientset, service *corev1.Service) (serviceOut *corev1.Service, err error) {
-	if serviceOut, err = client.CoreV1().Services(service.Namespace).Get(ctx, service.Name, metav1.GetOptions{}); err != nil {
-		if errors.IsNotFound(err) {
-			serviceOut, err = client.CoreV1().Services(service.Namespace).Create(ctx, service, metav1.CreateOptions{})
-		}
-	}
-
-	return
+type APIGetCreate[T any] interface {
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*T, error)
+	Create(ctx context.Context, obj *T, opts metav1.CreateOptions) (*T, error)
 }
 
-func EnsureStatefulSet(ctx context.Context, client *kubernetes.Clientset, sts *appsv1.StatefulSet) (stsOut *appsv1.StatefulSet, err error) {
-	if stsOut, err = client.AppsV1().StatefulSets(sts.Namespace).Get(ctx, sts.Name, metav1.GetOptions{}); err != nil {
-		if errors.IsNotFound(err) {
-			stsOut, err = client.AppsV1().StatefulSets(sts.Namespace).Create(ctx, sts, metav1.CreateOptions{})
+func Ensure[T any](ctx context.Context, api APIGetCreate[T], obj *T) (out *T, err error) {
+	metadata := ExtractObjectMeta(obj)
+
+	if metadata.Name == "" {
+		err = errors.New("gracek8s.Ensure: missing metadata.name")
+		return
+	}
+
+	if out, err = api.Get(ctx, metadata.Name, metav1.GetOptions{}); err != nil {
+		if kerrors.IsNotFound(err) {
+			out, err = api.Create(ctx, obj, metav1.CreateOptions{})
 		}
 	}
+
 	return
 }
 
@@ -44,7 +47,7 @@ type EnsureCertificateResult struct {
 func EnsureCertificate(ctx context.Context, client *kubernetes.Clientset, opts EnsureCertificateOptions) (res EnsureCertificateResult, err error) {
 	var secret *corev1.Secret
 	if secret, err = client.CoreV1().Secrets(opts.Namespace).Get(ctx, opts.Name, metav1.GetOptions{}); err != nil {
-		if errors.IsNotFound(err) {
+		if kerrors.IsNotFound(err) {
 			err = nil
 
 			var xRes gracex509.GenerationResult
