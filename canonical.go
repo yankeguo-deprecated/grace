@@ -10,6 +10,10 @@ type Executor01[O1 any] interface {
 	Do() (o1 O1)
 }
 
+type Executor02[O1 any, O2 any] interface {
+	Do() (o1 O1, o2 O2)
+}
+
 type Executor11[I1 any, O1 any] interface {
 	Do(i1 I1) (o1 O1)
 }
@@ -35,6 +39,12 @@ func (fn Func10[I1]) Do(i1 I1) {
 type Func01[O1 any] func() (o1 O1)
 
 func (fn Func01[O1]) Do() O1 {
+	return fn()
+}
+
+type Func02[O1 any, O2 any] func() (o1 O1, o2 O2)
+
+func (fn Func02[O1, O2]) Do() (O1, O2) {
 	return fn()
 }
 

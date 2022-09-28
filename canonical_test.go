@@ -9,6 +9,9 @@ var (
 	_ Executor01[int] = Func01[int](func() (o1 int) {
 		return
 	})
+	_ Executor02[int, bool] = Func02[int, bool](func() (o1 int, o2 bool) {
+		return
+	})
 	_ Executor11[int, int] = Func11[int, int](func(i1 int) (o1 int) {
 		return
 	})
