@@ -1,46 +1,78 @@
 package gracex509
 
 import (
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/pem"
 	"errors"
+	"fmt"
+	"github.com/guoyk93/grace/gracepem"
 	"math/big"
 	"time"
 )
 
-func createCertificate(template, parent *x509.Certificate, pub any, priv any) (crtOut *x509.Certificate, crtPEMOut []byte, err error) {
-	var crtRaw []byte
-	if crtRaw, err = x509.CreateCertificate(rand.Reader, template, parent, pub, priv); err != nil {
+// CreateCertificatePEM create certificate with PEM output
+func CreateCertificatePEM(template, parent *x509.Certificate, pub any, priv any) (crt *x509.Certificate, crtPEM []byte, err error) {
+	var raw []byte
+	if raw, err = x509.CreateCertificate(rand.Reader, template, parent, pub, priv); err != nil {
+		return
+	}
+	if crt, err = x509.ParseCertificate(raw); err != nil {
+		return
+	}
+	crtPEM = gracepem.EncodeSingle(raw, PEMTypeCertificate)
+	return
+}
+
+// GeneratePrivateKeyPEM generate a private key with PEM output in PKCS8 format
+func GeneratePrivateKeyPEM(alg x509.PublicKeyAlgorithm) (key crypto.Signer, keyPEM []byte, err error) {
+	switch alg {
+	case x509.RSA:
+		if key, err = rsa.GenerateKey(rand.Reader, 2048); err != nil {
+			return
+		}
+	case x509.ECDSA:
+		if key, err = ecdsa.GenerateKey(elliptic.P384(), rand.Reader); err != nil {
+			return
+		}
+	case x509.Ed25519:
+		if _, key, err = ed25519.GenerateKey(rand.Reader); err != nil {
+			return
+		}
+	default:
+		err = fmt.Errorf("gracex509.GeneratePrivateKeyPEM(): unknown PublicKeyAlgorithm: %02x", alg)
 		return
 	}
 
-	if crtOut, err = x509.ParseCertificate(crtRaw); err != nil {
+	var raw []byte
+	if raw, err = x509.MarshalPKCS8PrivateKey(key); err != nil {
 		return
 	}
 
-	crtPEMOut = pem.EncodeToMemory(&pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: crtRaw,
-	})
-
+	keyPEM = gracepem.EncodeSingle(raw, PEMTypePrivateKey)
 	return
 }
 
 const (
-	DefaultCountry      = "CN"
-	DefaultOrganization = "guoyk93.github.io"
-	DefaultExpires      = time.Hour * 24 * 365 * 30
+	DefaultCountry            = "CN"
+	DefaultOrganization       = "guoyk93.github.io"
+	DefaultExpires            = time.Hour * 24 * 365 * 30
+	DefaultPublicKeyAlgorithm = x509.RSA
 )
 
-// GenerationOptions options for certificate generation
-type GenerationOptions struct {
-	// CACrtPEM public key pem for ca, required for leaf certificate generation
-	CACrtPEM []byte
-	// CAKeyPEM private key pem for ca, required for leaf certificate generation
-	CAKeyPEM []byte
+// GenerateOptions options for certificate generation
+type GenerateOptions struct {
+	// Parent certificate of parent, required when IsCA is false
+	Parent PEMPair
+	// IsCA whether to generate a IsCA certificate
+	IsCA bool
+	// PublicKeyAlgorithm x509 public key algorithm, default to RSA
+	PublicKeyAlgorithm x509.PublicKeyAlgorithm
 	// Names certificate names, tailing names will be used as DNSNames
 	Names []string
 	// Country certificate country
@@ -51,25 +83,16 @@ type GenerationOptions struct {
 	Expires time.Duration
 }
 
-func (opts GenerationOptions) IsCA() bool {
-	return len(opts.CACrtPEM)+len(opts.CAKeyPEM) == 0
-}
-
-// GenerationResult result of certificate generation
-type GenerationResult struct {
-	Crt    *x509.Certificate
-	CrtPEM []byte
-	Key    *rsa.PrivateKey
-	KeyPEM []byte
-}
-
-// Generate easily generate certificate and private key
-// if both CACrtPEM and CAKeyPem is missing, will generate a new CA
-func Generate(opts GenerationOptions) (res GenerationResult, err error) {
+// Generate easily generate a certificate with RSA private key
+// if both ParentCrtPEM and CAKeyPem is missing, will generate a new IsCA
+func Generate(opts GenerateOptions) (res PEMPair, err error) {
 	// check options
 	if len(opts.Names) < 1 {
 		err = errors.New("gracex509.Generate: opts.Names missing")
 		return
+	}
+	if opts.PublicKeyAlgorithm == 0 {
+		opts.PublicKeyAlgorithm = DefaultPublicKeyAlgorithm
 	}
 	if opts.Country == "" {
 		opts.Country = DefaultCountry
@@ -80,15 +103,16 @@ func Generate(opts GenerationOptions) (res GenerationResult, err error) {
 	if opts.Expires <= 0 {
 		opts.Expires = DefaultExpires
 	}
-
-	// generate res.Key
-	if res.Key, err = rsa.GenerateKey(rand.Reader, 2048); err != nil {
+	if opts.Parent.IsZero() && !opts.IsCA {
+		err = errors.New("gracex509.Generate: both opts.IsCA is false and opts.Parent is missing")
 		return
 	}
-	res.KeyPEM = pem.EncodeToMemory(&pem.Block{
-		Type:  "RSA PRIVATE KEY",
-		Bytes: x509.MarshalPKCS1PrivateKey(res.Key),
-	})
+
+	var resKey crypto.Signer
+	if resKey, res.Key, err = GeneratePrivateKeyPEM(opts.PublicKeyAlgorithm); err != nil {
+		return
+	}
+	resKeyPub := resKey.Public()
 
 	var (
 		notBefore = time.Now().Add(-time.Second * 10)
@@ -97,8 +121,8 @@ func Generate(opts GenerationOptions) (res GenerationResult, err error) {
 
 	var template *x509.Certificate
 
-	if opts.IsCA() {
-		// ca certificate
+	if opts.Parent.IsZero() {
+		// root-ca
 		template = &x509.Certificate{
 			SerialNumber: big.NewInt(notBefore.UnixMilli()),
 			Subject: pkix.Name{
@@ -106,6 +130,7 @@ func Generate(opts GenerationOptions) (res GenerationResult, err error) {
 				Organization: []string{opts.Organization},
 				CommonName:   opts.Names[0],
 			},
+			DNSNames:              opts.Names[1:],
 			NotBefore:             notBefore,
 			NotAfter:              notAfter,
 			KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
@@ -115,63 +140,62 @@ func Generate(opts GenerationOptions) (res GenerationResult, err error) {
 			MaxPathLen:            2,
 		}
 
-		// assign res.Crt res.CrtPEM
-		if res.Crt, res.CrtPEM, err = createCertificate(
-			template,
-			template,
-			&res.Key.PublicKey,
-			res.Key,
-		); err != nil {
+		// create crt
+		if _, res.Crt, err = CreateCertificatePEM(template, template, resKeyPub, resKey); err != nil {
 			return
 		}
+
 	} else {
-		// leaf certificate
+		// leaf or middle-ca certificate
 		var (
-			caCrt *x509.Certificate
-			caKey *rsa.PrivateKey
+			parentCrt *x509.Certificate
+			parentKey any
 		)
-		{
-			caCrtRaw, _ := pem.Decode(opts.CACrtPEM)
-			if caCrtRaw == nil {
-				err = errors.New("gracex509.Generate: invalid opts.CACrtPEM")
-				return
+		if parentCrt, parentKey, err = opts.Parent.Decode(); err != nil {
+			err = errors.New("grace509.Generate(): failed to decode opts.Parent: " + err.Error())
+			return
+		}
+		if !parentCrt.IsCA {
+			err = errors.New("grace509.Generate(): opts.Parent is not a CA")
+			return
+		}
+		if opts.IsCA {
+			// middle-ca
+			template = &x509.Certificate{
+				SerialNumber: big.NewInt(notBefore.UnixMilli()),
+				Subject: pkix.Name{
+					Country:      []string{opts.Country},
+					Organization: []string{opts.Organization},
+					CommonName:   opts.Names[0],
+				},
+				DNSNames:              opts.Names[1:],
+				NotBefore:             notBefore,
+				NotAfter:              notAfter,
+				KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+				ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+				BasicConstraintsValid: true,
+				IsCA:                  true,
+				MaxPathLen:            1,
 			}
-			if caCrtRaw.Type != "CERTIFICATE" {
-				err = errors.New("gracex509.Generate: invalid opts.CACrtPEM pem type: " + caCrtRaw.Type)
-				return
-			}
-			if caCrt, err = x509.ParseCertificate(caCrtRaw.Bytes); err != nil {
-				return
+		} else {
+			// leaf
+			template = &x509.Certificate{
+				SerialNumber: big.NewInt(notBefore.UnixMilli()),
+				Subject: pkix.Name{
+					Country:      []string{opts.Country},
+					Organization: []string{opts.Organization},
+					CommonName:   opts.Names[0],
+				},
+				DNSNames:    opts.Names[1:],
+				NotBefore:   notBefore,
+				NotAfter:    notAfter,
+				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 			}
 		}
-		{
-			caKeyRaw, _ := pem.Decode(opts.CAKeyPEM)
-			if caKeyRaw == nil {
-				err = errors.New("gracex509.Generate: invalid opts.CAKeyPEM")
-				return
-			}
-			if caKeyRaw.Type != "RSA PRIVATE KEY" {
-				err = errors.New("gracex509.Generate: invalid opts.CAKeyPEM pem type: " + caKeyRaw.Type)
-				return
-			}
-			if caKey, err = x509.ParsePKCS1PrivateKey(caKeyRaw.Bytes); err != nil {
-				return
-			}
-		}
-		template = &x509.Certificate{
-			SerialNumber: big.NewInt(notBefore.UnixMilli()),
-			Subject: pkix.Name{
-				Country:      []string{opts.Country},
-				Organization: []string{opts.Organization},
-				CommonName:   opts.Names[0],
-			},
-			DNSNames:    opts.Names[1:],
-			NotBefore:   notBefore,
-			NotAfter:    notAfter,
-			KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-			ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		}
-		if res.Crt, res.CrtPEM, err = createCertificate(template, caCrt, &res.Key.PublicKey, caKey); err != nil {
+
+		// create crt
+		if _, res.Crt, err = CreateCertificatePEM(template, parentCrt, resKeyPub, parentKey); err != nil {
 			return
 		}
 	}
