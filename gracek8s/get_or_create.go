@@ -39,15 +39,14 @@ func GetOrCreateTLSSecret(
 	api APIGetCreate[corev1.Secret],
 	name string,
 	opts gracex509.GenerateOptions,
-) (res gracex509.PEMPair, err error) {
-	var secret *corev1.Secret
+) (secret *corev1.Secret, res gracex509.PEMPair, err error) {
 	if secret, err = api.Get(ctx, name, metav1.GetOptions{}); err != nil {
 		if kerrors.IsNotFound(err) {
 			if res, err = gracex509.Generate(opts); err != nil {
 				return
 			}
 
-			if _, err = api.Create(ctx, &corev1.Secret{
+			if secret, err = api.Create(ctx, &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: name,
 				},

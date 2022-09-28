@@ -56,7 +56,7 @@ func TestGetOrCreateTLSSecret(t *testing.T) {
 	client, err := DefaultClient()
 	require.NoError(t, err)
 
-	sec, err := GetOrCreateTLSSecret(
+	_, sec, err := GetOrCreateTLSSecret(
 		context.Background(),
 		client.CoreV1().Secrets("default"),
 		"test-get-or-create-tls",
