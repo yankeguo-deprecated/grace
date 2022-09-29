@@ -15,7 +15,7 @@ type loggerWriter struct {
 	lock sync.Locker
 }
 
-// NewLoggerWriter create a new io.WriteCloser that append each line to log.Logger
+// NewLoggerWriter create a new io.WriteCloser that append each line to log.ProcLogger
 func NewLoggerWriter(logger *log.Logger, prefix string) io.WriteCloser {
 	return &loggerWriter{
 		logger: logger,

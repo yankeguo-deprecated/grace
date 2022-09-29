@@ -13,7 +13,7 @@ func TestNewRotatingFile(t *testing.T) {
 	_ = os.WriteFile(filepath.Join("testdata", "logs", ".gitignore"), []byte("*.log"), 0644)
 	f, err := NewRotatingFile(RotatingFileOptions{
 		Dir:         filepath.Join("testdata", "logs"),
-		Name:        "test",
+		Filename:    "test",
 		MaxFileSize: 10,
 	})
 	require.NoError(t, err)
@@ -27,7 +27,7 @@ func TestNewRotatingFile(t *testing.T) {
 	require.NoError(t, err)
 	f, err = NewRotatingFile(RotatingFileOptions{
 		Dir:          filepath.Join("testdata", "logs"),
-		Name:         "test-maxcount",
+		Filename:     "test-maxcount",
 		MaxFileSize:  10,
 		MaxFileCount: 2,
 	})

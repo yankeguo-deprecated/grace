@@ -23,8 +23,8 @@ type rotatingFile struct {
 type RotatingFileOptions struct {
 	// Dir directory
 	Dir string
-	// Name filename prefix
-	Name string
+	// Filename filename prefix
+	Filename string
 	// MaxFileSize max size of a single file, default to 128mb
 	MaxFileSize int64
 	// MaxFileCount max count of rotated files
@@ -45,11 +45,11 @@ func NewRotatingFile(opts RotatingFileOptions) (w io.WriteCloser, err error) {
 }
 
 func (rf *rotatingFile) currentPath() string {
-	return filepath.Join(rf.opts.Dir, rf.opts.Name+".log")
+	return filepath.Join(rf.opts.Dir, rf.opts.Filename+".log")
 }
 
 func (rf *rotatingFile) rotatedPath(id int64) string {
-	return filepath.Join(rf.opts.Dir, fmt.Sprintf("%s.%d.log", rf.opts.Name, id))
+	return filepath.Join(rf.opts.Dir, fmt.Sprintf("%s.%d.log", rf.opts.Filename, id))
 }
 
 func (rf *rotatingFile) nextRotatedID() (id int64, err error) {
@@ -60,9 +60,9 @@ func (rf *rotatingFile) nextRotatedID() (id int64, err error) {
 
 	for _, entry := range entries {
 		name := entry.Name()
-		if strings.HasPrefix(name, rf.opts.Name+".") &&
+		if strings.HasPrefix(name, rf.opts.Filename+".") &&
 			strings.HasSuffix(name, ".log") {
-			eIDStr := strings.TrimSuffix(strings.TrimPrefix(name, rf.opts.Name+"."), ".log")
+			eIDStr := strings.TrimSuffix(strings.TrimPrefix(name, rf.opts.Filename+"."), ".log")
 			eID, _ := strconv.ParseInt(eIDStr, 10, 64)
 			if eID > id {
 				id = eID
