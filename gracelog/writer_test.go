@@ -7,13 +7,13 @@ import (
 	"testing"
 )
 
-func TestLogWriter(t *testing.T) {
+func TestLoggerWriter(t *testing.T) {
 	out := &bytes.Buffer{}
-	l := log.New(out, "aaa", 0)
-	w := NewLogWriter(l, "bbb")
+	l := log.New(out, "aaa", log.Lshortfile)
+	w := NewLoggerWriter(l, "bbb ")
 	_, err := w.Write([]byte("hello,world\nbbb"))
 	require.NoError(t, err)
 	err = w.Close()
 	require.NoError(t, err)
-	require.Equal(t, "aaabbb hello,world\naaabbb bbb\n", out.String())
+	require.Equal(t, "aaawriter_test.go:14: bbb hello,world\naaawriter_test.go:16: bbb bbb\n", out.String())
 }
