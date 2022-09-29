@@ -1,70 +1,11 @@
 package gracelog
 
 import (
-	"bufio"
 	"fmt"
 	"github.com/guoyk93/grace"
 	"io"
 	"os"
 )
-
-type ProcLogChannel struct {
-	FilePrefix    string
-	File          io.WriteCloser
-	ConsolePrefix string
-	Console       io.Writer
-}
-
-func (pc *ProcLogChannel) Close() error {
-	if pc.File != nil {
-		return pc.File.Close()
-	}
-	return nil
-}
-
-func (pc *ProcLogChannel) Write(buf []byte) (n int, err error) {
-	if pc.FilePrefix == "" {
-		if _, err = pc.File.Write(buf); err != nil {
-			return
-		}
-	} else {
-		if _, err = pc.File.Write(append([]byte(pc.FilePrefix), buf...)); err != nil {
-			return
-		}
-	}
-
-	if pc.ConsolePrefix == "" {
-		if _, err = pc.Console.Write(buf); err != nil {
-			return
-		}
-	} else {
-		if _, err = pc.Console.Write(append([]byte(pc.ConsolePrefix), buf...)); err != nil {
-			return
-		}
-	}
-
-	n = len(buf)
-
-	return
-}
-
-func (pc *ProcLogChannel) ReadFrom(r io.Reader) (n int64, err error) {
-	br := bufio.NewReader(r)
-	for {
-		var line []byte
-		if line, err = br.ReadBytes('\n'); err == nil {
-			_, _ = pc.Write(line)
-			n += int64(len(line))
-		} else {
-			if len(line) != 0 {
-				_, _ = pc.Write(append(line, '\n'))
-				n += int64(len(line))
-			}
-			break
-		}
-	}
-	return
-}
 
 type ProcLoggerOptions struct {
 	RotatingFileOptions
@@ -77,8 +18,8 @@ type ProcLoggerOptions struct {
 }
 
 type ProcLogger struct {
-	out *ProcLogChannel
-	err *ProcLogChannel
+	out Output
+	err Output
 }
 
 func NewProcLogger(opts ProcLoggerOptions) (pl *ProcLogger, err error) {
@@ -95,18 +36,8 @@ func NewProcLogger(opts ProcLoggerOptions) (pl *ProcLogger, err error) {
 		opts.MaxFileCount = 5
 	}
 
-	pl = &ProcLogger{
-		out: &ProcLogChannel{
-			ConsolePrefix: opts.ConsolePrefix,
-			FilePrefix:    opts.FilePrefix,
-		},
-		err: &ProcLogChannel{
-			ConsolePrefix: opts.ConsolePrefix,
-			FilePrefix:    opts.FilePrefix,
-		},
-	}
-
-	if pl.out.File, err = NewRotatingFile(RotatingFileOptions{
+	var fileOut io.WriteCloser
+	if fileOut, err = NewRotatingFile(RotatingFileOptions{
 		Dir:          opts.Dir,
 		Filename:     opts.Filename + ".out",
 		MaxFileSize:  opts.MaxFileSize,
@@ -115,7 +46,8 @@ func NewProcLogger(opts ProcLoggerOptions) (pl *ProcLogger, err error) {
 		return
 	}
 
-	if pl.err.File, err = NewRotatingFile(RotatingFileOptions{
+	var fileErr io.WriteCloser
+	if fileErr, err = NewRotatingFile(RotatingFileOptions{
 		Dir:          opts.Dir,
 		Filename:     opts.Filename + ".err",
 		MaxFileSize:  opts.MaxFileSize,
@@ -124,8 +56,16 @@ func NewProcLogger(opts ProcLoggerOptions) (pl *ProcLogger, err error) {
 		return
 	}
 
-	pl.out.Console = opts.ConsoleOut
-	pl.err.Console = opts.ConsoleErr
+	pl = &ProcLogger{
+		out: MultiOutput(
+			NewWriterOutput(fileOut, []byte(opts.FilePrefix), nil),
+			NewWriterOutput(opts.ConsoleOut, []byte(opts.ConsolePrefix), nil),
+		),
+		err: MultiOutput(
+			NewWriterOutput(fileErr, []byte(opts.FilePrefix), nil),
+			NewWriterOutput(opts.ConsoleErr, []byte(opts.ConsolePrefix), nil),
+		),
+	}
 	return
 }
 
@@ -152,10 +92,10 @@ func (pl *ProcLogger) Errorf(pattern string, items ...interface{}) {
 	_, _ = pl.err.Write(append([]byte(fmt.Sprintf(pattern, items...)), '\n'))
 }
 
-func (pl *ProcLogger) StreamOut(r io.Reader) {
-	_, _ = pl.out.ReadFrom(r)
+func (pl *ProcLogger) Out() Output {
+	return pl.out
 }
 
-func (pl *ProcLogger) StreamErr(r io.Reader) {
-	_, _ = pl.err.ReadFrom(r)
+func (pl *ProcLogger) Err() Output {
+	return pl.err
 }

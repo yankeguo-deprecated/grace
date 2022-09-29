@@ -1,6 +1,7 @@
 package grace
 
 import (
+	"io"
 	"strconv"
 	"strings"
 	"sync"
@@ -54,4 +55,14 @@ func (eg *ErrorGroup) Unwrap() error {
 	}
 
 	return nil
+}
+
+func IgnoreEOF(err *error) {
+	if err == nil {
+		return
+	}
+	if *err == io.EOF {
+		*err = nil
+	}
+	return
 }
