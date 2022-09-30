@@ -27,10 +27,10 @@ func Notify(title string, ctx *context.Context, err *error) {
 		items = track.DumpPlain()
 	}
 	if *err != nil {
-		items = append(items, "错误: "+(*err).Error())
+		items = append(items, "ERROR: "+(*err).Error())
 	}
 	if len(items) == 0 {
-		items = append(items, "执行完成")
+		items = append(items, "DONE")
 	}
 	text := title + "\n" + strings.Join(items, "\n")
 	var buf []byte
