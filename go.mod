@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/creasty/defaults v1.6.0
 	github.com/go-playground/validator/v10 v10.11.0
-	github.com/labstack/echo/v4 v4.7.2
+	github.com/labstack/echo/v4 v4.9.0
 	github.com/stretchr/testify v1.8.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.22.9
