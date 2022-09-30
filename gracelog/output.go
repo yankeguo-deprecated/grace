@@ -7,13 +7,21 @@ import (
 	"sync"
 )
 
-// Output interface for log output
+// Output interface for single stream log output
 type Output interface {
 	// WriteCloser is for single line writing
 	io.WriteCloser
 
 	// ReaderFrom is for streaming
 	io.ReaderFrom
+}
+
+// ProcOutput interface for process
+type ProcOutput interface {
+	// Out stdout
+	Out() Output
+	// Err stderr
+	Err() Output
 }
 
 type writerOutput struct {

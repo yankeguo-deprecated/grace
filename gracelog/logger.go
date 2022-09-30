@@ -17,12 +17,21 @@ type ProcLoggerOptions struct {
 	FilePrefix    string
 }
 
-type ProcLogger struct {
+type ProcLogger interface {
+	Print(items ...interface{})
+	Printf(layout string, items ...interface{})
+	Error(items ...interface{})
+	Errorf(layout string, items ...interface{})
+
+	ProcOutput
+}
+
+type procLogger struct {
 	out Output
 	err Output
 }
 
-func NewProcLogger(opts ProcLoggerOptions) (pl *ProcLogger, err error) {
+func NewProcLogger(opts ProcLoggerOptions) (pl ProcLogger, err error) {
 	if opts.ConsoleOut == nil {
 		opts.ConsoleOut = os.Stdout
 	}
@@ -56,7 +65,7 @@ func NewProcLogger(opts ProcLoggerOptions) (pl *ProcLogger, err error) {
 		return
 	}
 
-	pl = &ProcLogger{
+	pl = &procLogger{
 		out: MultiOutput(
 			NewWriterOutput(fileOut, []byte(opts.FilePrefix), nil),
 			NewWriterOutput(opts.ConsoleOut, []byte(opts.ConsolePrefix), nil),
@@ -69,33 +78,33 @@ func NewProcLogger(opts ProcLoggerOptions) (pl *ProcLogger, err error) {
 	return
 }
 
-func (pl *ProcLogger) Close() error {
+func (pl *procLogger) Close() error {
 	eg := grace.NewErrorGroup()
 	eg.Add(pl.out.Close())
 	eg.Add(pl.err.Close())
 	return eg.Unwrap()
 }
 
-func (pl *ProcLogger) Print(items ...interface{}) {
+func (pl *procLogger) Print(items ...interface{}) {
 	_, _ = pl.out.Write(append([]byte(fmt.Sprint(items...)), '\n'))
 }
 
-func (pl *ProcLogger) Error(items ...interface{}) {
+func (pl *procLogger) Error(items ...interface{}) {
 	_, _ = pl.err.Write(append([]byte(fmt.Sprint(items...)), '\n'))
 }
 
-func (pl *ProcLogger) Printf(pattern string, items ...interface{}) {
+func (pl *procLogger) Printf(pattern string, items ...interface{}) {
 	_, _ = pl.out.Write(append([]byte(fmt.Sprintf(pattern, items...)), '\n'))
 }
 
-func (pl *ProcLogger) Errorf(pattern string, items ...interface{}) {
+func (pl *procLogger) Errorf(pattern string, items ...interface{}) {
 	_, _ = pl.err.Write(append([]byte(fmt.Sprintf(pattern, items...)), '\n'))
 }
 
-func (pl *ProcLogger) Out() Output {
+func (pl *procLogger) Out() Output {
 	return pl.out
 }
 
-func (pl *ProcLogger) Err() Output {
+func (pl *procLogger) Err() Output {
 	return pl.err
 }
