@@ -6,15 +6,9 @@ An elegant golang utils library
 
 > 优雅，永不过时
 
-## Upstream
-
-https://git.guoyk.net/go-guoyk/grace
-
-Due to various reasons, codebase is detached from upstream.
-
 ## Donation
 
-![oss-donation-wx](https://www.guoyk.net/oss-donation-wx.png)
+View https://guoyk.xyz/donation
 
 ## Credits
 
